@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { makePayload, readChatStream } from './stream.js';
 import './style.css';
+import ClientGuide from './ClientGuide.jsx';
 
 function Icon({ name, ...props }) {
   const paths = {
@@ -107,6 +108,7 @@ function App() {
     </aside>
     <main>
       <header className="page-header"><div><div className="eyebrow">DESENVOLVIMENTO / PLAYGROUND</div><h1>Teste uma ideia.</h1><p>Dois provedores. Um lugar para conversar.</p></div><button className="secondary" onClick={newConversation} disabled={busy || messages.length === 0}><Icon name="plus" /> Nova conversa</button></header>
+      <ClientGuide />
       <div className="workspace">
         <section className="conversation" aria-label="Conversa">
           <div className="conversation-header"><span><span className="live-dot" /> Chat de teste</span><span className="badge">{provider === 'openai' ? 'OpenAI' : 'Anthropic'}</span></div>

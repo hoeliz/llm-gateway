@@ -36,6 +36,10 @@ curl -N http://127.0.0.1:8080/v1/chat/completions \
 
 Modelos não são fixados no código: o prefixo escolhe o provedor e o restante é enviado como seu identificador de modelo. As respostas retornam o modelo sem prefixo. As chamadas reais usam os créditos da conta do respectivo provedor.
 
+## Conectar outros clientes
+
+Consulte o [guia de clientes](docs/clients.md) para configurar **Open WebUI, LibreChat, Continue, Cline e Cursor**, com exemplos, uso em Docker e solução de erros. As mesmas instruções ficam em **Conectar clientes**, no painel. O guia distingue configuração de chat das funções de agentes que o MVP ainda não suporta; não houve validação ponta a ponta desses aplicativos.
+
 ## Interface gráfica
 
 O playground permite selecionar OpenAI ou Anthropic, informar o ID do modelo, configurar instruções, temperatura e limite de tokens, conversar com streaming, interromper a geração e iniciar nova conversa. Mostra tempo total, tempo até o primeiro texto e tokens informados pelo provedor.

@@ -1,0 +1,134 @@
+{
+  "checked": "2026-09-08",
+  "intro": "Configurações baseadas na documentação oficial. Não foram testadas de ponta a ponta nestes aplicativos. O MVP aceita apenas chat de texto com conteúdo string e streaming.",
+  "connection": [
+    {
+      "label": "Base URL · cliente na mesma máquina",
+      "value": "http://127.0.0.1:8080/v1"
+    },
+    {
+      "label": "Base URL · cliente em Docker Desktop",
+      "value": "http://host.docker.internal:8080/v1"
+    },
+    {
+      "label": "API Key",
+      "value": "O valor de GATEWAY_API_KEY do servidor"
+    },
+    {
+      "label": "Model ID",
+      "value": "openai/SEU_MODELO ou anthropic/SEU_MODELO"
+    }
+  ],
+  "network": [
+    "A porta 5173 é a prévia do frontend. A conexão dos clientes deve apontar para a porta 8080 do gateway, com /v1. Não acrescente /chat/completions ao campo Base URL.",
+    "Dentro de containers, localhost aponta para o próprio container. No Docker Desktop, use host.docker.internal. Em Linux, pode ser necessário adicionar --add-host=host.docker.internal:host-gateway ao container.",
+    "Para aceitar conexões de containers ou de outra máquina, configure LISTEN_ADDR=0.0.0.0:8080 antes de iniciar o gateway e restrinja o acesso pelo firewall/rede. O padrão 127.0.0.1 aceita apenas conexões locais.",
+    "Se cliente e gateway estiverem na mesma rede Docker, use o nome do serviço do gateway: http://gateway:8080/v1, substituindo gateway pelo nome real.",
+    "Clientes em nuvem não alcançam seu localhost. Use um gateway hospedado e acessível via HTTPS. O MVP não habilita CORS para conexões diretas entre origens no navegador; prefira clientes que façam as chamadas pelo servidor."
+  ],
+  "clients": [
+    {
+      "id": "open-webui",
+      "name": "Open WebUI",
+      "status": "Configuração para chat de texto",
+      "source": "https://docs.openwebui.com/getting-started/quick-start/connect-a-provider/starting-with-openai-compatible",
+      "steps": [
+        "Abra Settings → Admin → Connections e adicione uma conexão OpenAI.",
+        "Preencha URL com o endereço do gateway terminado em /v1 e API Key com sua GATEWAY_API_KEY. Mantenha o tipo/provedor em Default/OpenAI-compatible.",
+        "Em Model IDs (Filter), adicione manualmente openai/SEU_MODELO ou anthropic/SEU_MODELO usando o botão + e salve. A descoberta automática não funciona neste MVP.",
+        "Selecione o modelo e teste uma mensagem curta de texto. Deixe ferramentas, anexos e recursos de agentes desativados."
+      ],
+      "example": "URL: http://127.0.0.1:8080/v1\nAPI Key: SUA_GATEWAY_API_KEY\nModel IDs (Filter):\n  openai/SEU_MODELO_OPENAI\n  anthropic/SEU_MODELO_ANTHROPIC",
+      "language": "text",
+      "caveat": "Se o teste de conexão reclamar de /models, confira os IDs manuais. O cliente ainda pode enviar parâmetros extras: um HTTP 400 indica que o payload precisa ser ajustado. Prefira conexão administrada pelo servidor, não Direct Connections do navegador."
+    },
+    {
+      "id": "librechat",
+      "name": "LibreChat",
+      "status": "Configuração para chat de texto",
+      "source": "https://www.librechat.ai/docs/configuration/librechat_yaml/object_structure/custom_endpoint",
+      "steps": [
+        "Defina LLM_GATEWAY_API_KEY no ambiente do servidor LibreChat com a chave do gateway. Não coloque a chave real no YAML versionado.",
+        "Mescle o bloco endpoints.custom abaixo ao seu librechat.yaml existente. Preserve a versão e as demais configurações do arquivo.",
+        "Substitua os IDs de modelo e ajuste baseURL para a rede do LibreChat. Mantenha models.fetch: false.",
+        "Reinicie o LibreChat conforme sua instalação, selecione LLM Gateway e use conversa de texto sem agentes ou anexos."
+      ],
+      "example": "endpoints:\n  custom:\n    - name: \"LLM Gateway\"\n      apiKey: \"${LLM_GATEWAY_API_KEY}\"\n      baseURL: \"http://127.0.0.1:8080/v1\"\n      models:\n        default:\n          - \"openai/SEU_MODELO_OPENAI\"\n          - \"anthropic/SEU_MODELO_ANTHROPIC\"\n        fetch: false\n      titleConvo: false\n      modelDisplayLabel: \"LLM Gateway\"\n      dropParams:\n        - user\n        - stop\n        - top_p\n        - frequency_penalty\n        - presence_penalty\n        - seed\n        - logit_bias\n        - logprobs\n        - top_logprobs\n        - n",
+      "language": "yaml",
+      "caveat": "Não defina provider: anthropic: mesmo para modelos Anthropic, este gateway recebe Chat Completions. dropParams remove parâmetros que o MVP não aceita; outros campos que sua versão enviar também podem exigir adaptação. Não remova ferramentas para simular suporte a agentes."
+    },
+    {
+      "id": "continue",
+      "name": "Continue · VS Code / JetBrains",
+      "status": "Somente modo Chat; requer validação",
+      "source": "https://docs.continue.dev/customize/model-providers/top-level/openai",
+      "steps": [
+        "Abra a configuração local YAML do Continue e mescle o modelo abaixo à lista models.",
+        "Use provider: openai para ambos os provedores e troque model pelo identificador completo com prefixo.",
+        "Informe sua chave do gateway apenas na configuração local privada; não a versione. Ajuste apiBase para o endereço visto pela extensão, inclusive em desenvolvimento remoto.",
+        "Use o modo Chat. Mantenha useResponsesApi: false e não ative useLegacyCompletionsEndpoint. Não use agentes, MCP, autocomplete ou edição automática neste MVP."
+      ],
+      "example": "name: LLM Gateway\nversion: 1.0.0\nschema: v1\nmodels:\n  - name: Gateway Chat\n    provider: openai\n    model: openai/SEU_MODELO_OPENAI\n    apiBase: http://127.0.0.1:8080/v1\n    apiKey: SUA_GATEWAY_API_KEY\n    useResponsesApi: false",
+      "language": "yaml",
+      "caveat": "A configuração segue a documentação do Continue, mas o chat pode enviar opções extras ou conteúdo estruturado que este gateway rejeita. O exemplo não garante compatibilidade integral com a extensão."
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "status": "Agentes ainda não suportados",
+      "source": "https://docs.cline.bot/provider-config/openai-compatible",
+      "steps": [
+        "O Cline permite selecionar API Provider → OpenAI Compatible nas configurações.",
+        "Os campos correspondentes seriam Base URL, API Key e Model ID, preenchidos com os valores abaixo.",
+        "Não trate esta configuração como uma integração funcional de agentes. O gateway precisa evoluir para suportar o protocolo de ferramentas e os payloads usados pelo cliente."
+      ],
+      "example": "API Provider: OpenAI Compatible\nBase URL: http://127.0.0.1:8080/v1\nAPI Key: SUA_GATEWAY_API_KEY\nModel ID: openai/SEU_MODELO_OPENAI",
+      "language": "text",
+      "caveat": "Este MVP não implementa tool_calls, mensagens tool, imagens ou Responses API. O Cline não foi validado, e seu fluxo de agente não é suportado por este gateway."
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "status": "Integração com o gateway não confirmada",
+      "source": "https://cursor.com/docs/settings/api-keys",
+      "steps": [
+        "A documentação de Bring your own API key orienta usar Cursor Settings → Models para cadastrar chaves de provedores. Essa configuração, por si só, não aponta para este gateway.",
+        "A página consultada não confirma um fluxo de URL personalizada para este gateway. Não cole GATEWAY_API_KEY em uma conexão destinada diretamente à OpenAI ou Anthropic.",
+        "As chamadas BYOK passam pelos servidores do Cursor; portanto, um endereço 127.0.0.1 da sua máquina não é suficiente. Uma futura integração exigiria um endpoint HTTPS alcançável e validação do protocolo da versão usada."
+      ],
+      "example": "",
+      "language": "text",
+      "caveat": "Não há configuração operacional validada para Cursor neste MVP. Ferramentas, Responses API e descoberta de modelos continuam fora do contrato do gateway."
+    }
+  ],
+  "troubleshooting": [
+    {
+      "problem": "401 · chave inválida",
+      "solution": "Use GATEWAY_API_KEY, não OPENAI_API_KEY nem ANTHROPIC_API_KEY. Nos campos API Key, informe apenas o valor; o cliente adiciona Bearer."
+    },
+    {
+      "problem": "404/405 em /v1/models",
+      "solution": "O catálogo ainda não existe. Informe modelos manualmente e desative a descoberta quando o cliente permitir."
+    },
+    {
+      "problem": "400 · campo ou conteúdo não suportado",
+      "solution": "O decoder é estrito: tools, top_p, stop, user, response_format e conteúdo em arrays não são aceitos, mesmo vazios. Desative a função ou remova o parâmetro na configuração do cliente. Não é um problema de credenciais."
+    },
+    {
+      "problem": "Modelo não encontrado",
+      "solution": "Troque SEU_MODELO por um ID habilitado na conta e preserve openai/ ou anthropic/. No playground integrado, selecione o provedor e use o ID sem prefixo; nos clientes externos, use o prefixo completo."
+    },
+    {
+      "problem": "503 · provedor indisponível",
+      "solution": "Configure a chave do provedor correspondente no ambiente do gateway e reinicie o processo."
+    },
+    {
+      "problem": "502 · provedor recusou / 504 · timeout",
+      "solution": "Confira as credenciais, o modelo e a conectividade do servidor. Para chamadas longas, revise UPSTREAM_TIMEOUT. Se a conexão cair após HTTP 200, o erro pode chegar em um evento SSE."
+    },
+    {
+      "problem": "Connection refused / falha de rede",
+      "solution": "Verifique /healthz, a porta, o endereço usado pelo cliente e LISTEN_ADDR. O serviço deve estar rodando antes de conectar o aplicativo."
+    }
+  ]
+}
