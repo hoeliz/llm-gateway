@@ -17,7 +17,7 @@ go run ./cmd/gateway
 
 Para gerar um executável local, use `make build`. Depois de exportar as variáveis acima, execute `./bin/llm-gateway`. Binários não são versionados.
 
-O processo não carrega `.env` automaticamente. A chave do gateway é independente das chaves dos provedores. O servidor escuta em `127.0.0.1:8080` por padrão.
+O processo não carrega `.env` automaticamente. A chave do gateway é independente das chaves dos provedores. O servidor escuta em `127.0.0.1:8080` por padrão. Abra **http://127.0.0.1:8080** para usar o playground React integrado.
 
 ```sh
 curl http://127.0.0.1:8080/healthz
@@ -36,8 +36,35 @@ curl -N http://127.0.0.1:8080/v1/chat/completions \
 
 Modelos não são fixados no código: o prefixo escolhe o provedor e o restante é enviado como seu identificador de modelo. As respostas retornam o modelo sem prefixo. As chamadas reais usam os créditos da conta do respectivo provedor.
 
+## Interface gráfica
+
+O playground permite selecionar OpenAI ou Anthropic, informar o ID do modelo, configurar instruções, temperatura e limite de tokens, conversar com streaming, interromper a geração e iniciar nova conversa. Mostra tempo total, tempo até o primeiro texto e tokens informados pelo provedor.
+
+Informe no painel a mesma `GATEWAY_API_KEY` configurada no servidor. Chaves OpenAI/Anthropic continuam exclusivamente nas variáveis de ambiente do backend. A chave do gateway e a conversa ficam apenas na memória da página; não são gravadas em localStorage, sessionStorage ou cookies. Recarregar a página limpa esses dados. Conversas são renderizadas como texto, sem interpretar HTML gerado pelo modelo.
+
+Respostas incompletas ficam visíveis, mas o turno incompleto não é reenviado no histórico; o prompt volta ao campo para uma nova tentativa. Ao trocar de provedor, o histórico concluído permanece e será enviado ao provedor selecionado na próxima mensagem. Use **Nova conversa** para começar sem histórico.
+
+A interface e seus assets são públicos; a API permanece autenticada. O painel não configura as chaves dos provedores nem autentica usuários individuais.
+
+### Desenvolver a interface
+
+O código React está em `web/`. O build é incorporado ao executável via `go:embed`, sem CDN e sem precisar de Node em produção. O build gerado em `internal/webui/dist/` é versionado para preservar `go run` após clonar. Após alterar React/CSS, gere e versione novamente os assets.
+
+```sh
+# Node.js 22.16+ e npm; a versão exata das dependências está no lockfile.
+cd web
+npm ci
+npm run build
+npm test
+cd ..
+go run ./cmd/gateway
+```
+
+Para atualização instantânea durante desenvolvimento, mantenha o Go na porta 8080 e execute `make ui-dev` em outro terminal. O Vite encaminha `/v1` e `/healthz` ao servidor Go.
+
 ## Contrato do MVP
 
+- `GET /` e `GET /assets/*`: interface React e arquivos estáticos, sem autenticação.
 - `GET /healthz`: saúde do processo, sem autenticação; não testa credenciais/conectividade.
 - `POST /v1/chat/completions`: exige `Authorization: Bearer <GATEWAY_API_KEY>`.
 - `messages`: conteúdo string, papéis `system`, `developer`, `user`, `assistant`.
@@ -54,7 +81,7 @@ Limite de requisição: 1 MiB. Resposta JSON: 8 MiB. Evento SSE: 1 MiB. `UPSTREA
 
 Erros anteriores ao streaming usam JSON com `error.type` e `error.message`. Falhas no stream geram um evento SSE de erro e fecham a conexão sem `[DONE]`. Corpos de erro dos provedores não são expostos. HTTP 401/403 do provedor viram 502; 429 preserva `Retry-After`; timeout vira 504. Uma chave não configurada retorna 503.
 
-Logs de inicialização/encerramento usam JSON e não registram prompts nem chaves. O MVP não inclui métricas por requisição, rate limiting, quotas, cobrança, persistência, painel administrativo, catálogo `/v1/models`, tools ou Responses API. Para uso fora da máquina local, configure terminação TLS e controles de acesso/cotas na implantação.
+Logs de inicialização/encerramento usam JSON e não registram prompts nem chaves. O MVP não inclui métricas por requisição, rate limiting, quotas, cobrança, persistência, gestão administrativa de usuários, catálogo `/v1/models`, tools ou Responses API. Para uso fora da máquina local, configure terminação TLS e controles de acesso/cotas na implantação.
 
 ## Estrutura e validação
 
@@ -62,6 +89,8 @@ Logs de inicialização/encerramento usam JSON e não registram prompts nem chav
 - `internal/gateway/gateway.go`: autenticação, validação e comunicação HTTP.
 - `internal/gateway/anthropic.go`: tradução de mensagens, respostas e eventos SSE.
 - `internal/gateway/gateway_test.go`: testes com servidores HTTP locais, sem chamadas pagas.
+- `internal/webui/`: build React incorporado e entrega segura de arquivos estáticos.
+- `web/src/`: playground, estilos e parser SSE com testes em Node.
 
 ```sh
 go test -race ./...
@@ -77,4 +106,6 @@ Os testes cobrem roteamento, separação de credenciais, conversão de mensagens
 - [Anthropic Messages](https://platform.claude.com/docs/en/api/messages/create)
 - [Anthropic streaming](https://platform.claude.com/docs/en/build-with-claude/streaming)
 
-Validação desta entrega: 10 testes principais passaram com `-race`, além de `go vet` e compilação. O executável também foi iniciado localmente para verificar saúde HTTP, rejeição de acesso sem chave e encerramento por SIGTERM. As integrações com provedores reais não foram executadas.
+Validação inicial do backend: 10 testes principais passaram com `-race`, além de `go vet` e compilação. O executável também foi iniciado localmente para verificar saúde HTTP, rejeição de acesso sem chave e encerramento por SIGTERM. As integrações com provedores reais não foram executadas.
+
+Validação do playground: build de produção React, 8 testes Node de parsing SSE/validação, suíte Go com `-race`, `go vet` e teste HTTP do executável com provedor simulado (HTML, assets, CSP, autenticação e streaming). Não foram feitas chamadas pagas nem validação visual automatizada em navegador.

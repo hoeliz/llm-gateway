@@ -250,3 +250,28 @@ func TestStreamingFlushesBeforeProviderFinishes(t *testing.T) {
 		t.Fatalf("bad event prefix %q", buf)
 	}
 }
+
+func TestPlaygroundRoutesAndAPIAuthentication(t *testing.T) {
+	g := setup(t, func(w http.ResponseWriter, r *http.Request) { t.Error("unexpected upstream call") })
+	for _, path := range []string{"/", "/v1/chat/completions", "/assets/missing.js"} {
+		w := httptest.NewRecorder()
+		g.Handler().ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		switch path {
+		case "/":
+			if w.Code != 200 || !strings.Contains(w.Body.String(), "LLM Gateway") {
+				t.Fatalf("UI unavailable: %d %s", w.Code, w.Body)
+			}
+			if w.Header().Get("Content-Security-Policy") == "" || w.Header().Get("Cache-Control") != "no-store" {
+				t.Fatal("missing security/cache headers")
+			}
+		case "/v1/chat/completions":
+			if w.Code != 401 {
+				t.Fatalf("API accessible without a key: %d", w.Code)
+			}
+		case "/assets/missing.js":
+			if w.Code != 404 {
+				t.Fatalf("invalid asset status: %d", w.Code)
+			}
+		}
+	}
+}

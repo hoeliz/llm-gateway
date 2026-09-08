@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"llm-gateway/internal/webui"
 )
 
 type Config struct {
@@ -71,10 +73,13 @@ func New(c Config) (*Gateway, error) {
 
 func (g *Gateway) Handler() http.Handler {
 	mux := http.NewServeMux()
+	ui := webui.Handler()
+	mux.Handle("GET /{$}", ui)
+	mux.Handle("GET /assets/", ui)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("POST /v1/chat/completions", g.chat)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/healthz" {
+		if r.URL.Path != "/healthz" && r.URL.Path != "/" && !strings.HasPrefix(r.URL.Path, "/assets/") {
 			got := sha256.Sum256([]byte(r.Header.Get("Authorization")))
 			want := sha256.Sum256([]byte("Bearer " + g.config.APIKey))
 			if subtle.ConstantTimeCompare(got[:], want[:]) != 1 {
